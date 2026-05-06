@@ -48,7 +48,7 @@ typedef struct {
 } CQ_Context;
 
 char *CQ_alloc(CQ_Context *ctx, size_t size);
-void CQ_free_all(CQ_Context *ctx);
+void CQ_cleanup(CQ_Context *ctx);
 char* CQ_text(CQ_Context *ctx, const char *prompt, size_t max_len);
 char* CQ_password(CQ_Context *ctx, const char *prompt, size_t max_len);
 char* CQ_select(CQ_Context *ctx, const char *prompt, const char **options, size_t num_options);
@@ -78,7 +78,7 @@ char *CQ_alloc(CQ_Context *ctx, size_t size)
     return ptr;
 }
 
-void CQ_free_all(CQ_Context *ctx)
+void CQ_cleanup(CQ_Context *ctx)
 {
     for(size_t i = 0; i < ctx->count; ++i)
         free(ctx->ptrs[i]);
