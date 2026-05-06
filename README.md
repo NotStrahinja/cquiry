@@ -77,6 +77,9 @@ if(QC_CHECKED(selected_features, 0 /* "Bla bla" */))
 ## License
 This project uses the [MIT License](https://github.com/NotStrahinja/cquiry/blob/main/LICENSE).
 
+## Documentation
+You can see the full documentation [here](https://github.com/NotStrahinja/cquiry/blob/main/DOCS.md).
+
 ## References
 [questionary](https://github.com/tmbo/questionary) (Python)
 
