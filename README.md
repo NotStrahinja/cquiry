@@ -21,8 +21,6 @@ You can see the usage of the context in the example code.
 Here's the code for a simple demo program from the preview:
 
 ```c
-#include <stdio.h>
-
 #define QC_IMPLEMENTATION
 #include "qc.h"
 
@@ -35,18 +33,25 @@ int main()
     char *password = QC_password(&ctx, "Enter your password:", 16);
 
     const char *fruits[] = {"Apple", "Banana", "Orange"};
-    size_t num_fruits = sizeof(fruits)/sizeof(fruits[0]);
-    char *select = QC_select(&ctx, "Select a fruit:", fruits, num_fruits);
+    char *select = QC_select(&ctx, "Select a fruit:", fruits, QC_ARRLEN(fruits));
 
     const char *features[] = {"Bla bla", "Demo", "123"};
-    size_t num_features = sizeof(features)/sizeof(features[0]);
-    uint64_t selected_features = QC_checkbox("Select features:", features, num_features);
+    uint64_t selected_features = QC_checkbox("Select features:", features, QC_ARRLEN(features));
 
     bool confirm = QC_confirm("Finish demo?");
 
     QC_free_all(&ctx);
 
     return 0;
+}
+```
+
+Additionally, for checking if a checkbox is checked, you can use the `QC_CHECKED` macro like this:
+
+```c
+if(QC_CHECKED(selected_features, 0 /* "Bla bla" */))
+{
+   ...
 }
 ```
 
