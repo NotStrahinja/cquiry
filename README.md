@@ -5,6 +5,10 @@ A single header C library for interactive CLI prompts.
 
 <img width="544" height="365" alt="demo" src="https://github.com/user-attachments/assets/6eff3cda-bdce-4fbb-b388-6a22912b857c" />
 
+## Quickstart
+
+Just download `qc.h` and drop it in your project. Done.
+
 ## Usage
 In order to use the library, include this at the top of your C file:
 ```c
