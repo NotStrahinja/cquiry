@@ -1,5 +1,5 @@
-#ifndef QC_H_
-#define QC_H_
+#ifndef CQ_H_
+#define CQ_H_
 
 #include <stdio.h>
 #include <string.h>
@@ -20,14 +20,14 @@
 #define ERR_COLOR "\x1b[31m"
 #define ARROW ">"
 
-#define QC_DEFAULT_CONTEXT {NULL, 0, 0,                  \
+#define CQ_DEFAULT_CONTEXT {NULL, 0, 0,                  \
     THEME_COLOR,                              \
     Q_COLOR,                             \
     ERR_COLOR,                                          \
     ARROW}
 
-#define QC_CHECKED(result, i) ((result) & (1ULL << (i)))
-#define QC_ARRLEN(arr) (sizeof(arr)/sizeof(arr[0]))
+#define CQ_CHECKED(result, i) ((result) & (1ULL << (i)))
+#define CQ_ARRLEN(arr) (sizeof(arr)/sizeof(arr[0]))
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -44,18 +44,19 @@ typedef struct {
     const char *q_color;
     const char *err_color;
     const char *arrow;
-} QC_Context;
+    bool sync;
+} CQ_Context;
 
-char *QC_alloc(QC_Context *ctx, size_t size);
-void QC_free_all(QC_Context *ctx);
-char* QC_text(QC_Context *ctx, const char *prompt, size_t max_len);
-char* QC_password(QC_Context *ctx, const char *prompt, size_t max_len);
-char* QC_select(QC_Context *ctx, const char *prompt, const char **options, size_t num_options);
-bool QC_confirm(QC_Context *ctx, const char *prompt);
-uint64_t QC_checkbox(QC_Context *ctx, const char *prompt, const char **options, size_t num_options);
+char *CQ_alloc(CQ_Context *ctx, size_t size);
+void CQ_free_all(CQ_Context *ctx);
+char* CQ_text(CQ_Context *ctx, const char *prompt, size_t max_len);
+char* CQ_password(CQ_Context *ctx, const char *prompt, size_t max_len);
+char* CQ_select(CQ_Context *ctx, const char *prompt, const char **options, size_t num_options);
+bool CQ_confirm(CQ_Context *ctx, const char *prompt);
+uint64_t CQ_checkbox(CQ_Context *ctx, const char *prompt, const char **options, size_t num_options);
 
-#ifdef QC_IMPLEMENTATION
-char *QC_alloc(QC_Context *ctx, size_t size)
+#ifdef CQ_IMPLEMENTATION
+char *CQ_alloc(CQ_Context *ctx, size_t size)
 {
     char *ptr = malloc(size);
     if(!ptr) return NULL;
@@ -77,7 +78,7 @@ char *QC_alloc(QC_Context *ctx, size_t size)
     return ptr;
 }
 
-void QC_free_all(QC_Context *ctx)
+void CQ_free_all(CQ_Context *ctx)
 {
     for(size_t i = 0; i < ctx->count; ++i)
         free(ctx->ptrs[i]);
@@ -87,9 +88,9 @@ void QC_free_all(QC_Context *ctx)
     ctx->capacity = 0;
 }
 
-char* QC_text(QC_Context *ctx, const char *prompt, size_t max_len)
+char* CQ_text(CQ_Context *ctx, const char *prompt, size_t max_len)
 {
-    char *buf = QC_alloc(ctx, max_len);
+    char *buf = CQ_alloc(ctx, max_len);
     if(!buf) return NULL;
     printf("%s?\x1b[0m %s \x1b[1m%s", ctx->q_color, prompt, ctx->theme_color);
     fgets(buf, max_len, stdin);
@@ -98,9 +99,9 @@ char* QC_text(QC_Context *ctx, const char *prompt, size_t max_len)
     return buf;
 }
 
-char* QC_password(QC_Context *ctx, const char *prompt, size_t max_len)
+char* CQ_password(CQ_Context *ctx, const char *prompt, size_t max_len)
 {
-    char *buf = QC_alloc(ctx, max_len);
+    char *buf = CQ_alloc(ctx, max_len);
     if(!buf) return NULL;
     printf("%s?\x1b[0m %s \x1b[1m%s", ctx->q_color, prompt, ctx->theme_color);
     if(max_len == 0)
@@ -184,7 +185,7 @@ char* QC_password(QC_Context *ctx, const char *prompt, size_t max_len)
     return buf;
 }
 
-char* QC_select(QC_Context *ctx, const char *prompt, const char **options, size_t num_options)
+char* CQ_select(CQ_Context *ctx, const char *prompt, const char **options, size_t num_options)
 {
     printf("%s?\x1b[0m %s\n", ctx->q_color, prompt);
 
@@ -248,7 +249,7 @@ char* QC_select(QC_Context *ctx, const char *prompt, const char **options, size_
         fflush(stdout);
     } while(key != CONFIRM);
 
-    char *selected = QC_alloc(ctx, strlen(options[selected_i]) + 1);
+    char *selected = CQ_alloc(ctx, strlen(options[selected_i]) + 1);
     strcpy(selected, options[selected_i]);
 
     for(int i = 0; i < num_options + 1; ++i)
@@ -260,7 +261,7 @@ char* QC_select(QC_Context *ctx, const char *prompt, const char **options, size_
     return selected;
 }
 
-bool QC_confirm(QC_Context *ctx, const char *prompt)
+bool CQ_confirm(CQ_Context *ctx, const char *prompt)
 {
     printf("%s?\x1b[0m %s (Y/n) \x1b[1m%s", ctx->q_color, prompt, ctx->theme_color);
 
@@ -280,7 +281,7 @@ bool QC_confirm(QC_Context *ctx, const char *prompt)
     return confirmed;
 }
 
-uint64_t QC_checkbox(QC_Context *ctx, const char *prompt, const char **options, size_t num_options)
+uint64_t CQ_checkbox(CQ_Context *ctx, const char *prompt, const char **options, size_t num_options)
 {
     uint64_t selected = 0;
 
