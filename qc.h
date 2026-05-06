@@ -234,7 +234,7 @@ char* QC_select(QC_Context *ctx, const char *prompt, const char **options, size_
     char frame[4096];
     int n = 0;
     for(int i = 0; i < num_options; ++i)
-        printf("  %s %s\n", (i == selected_i ? ctx->arrow : " "), options[i]);
+        printf(" %s %s\n", (i == selected_i ? ctx->arrow : " "), options[i]);
     do
     {
         n = 0;
@@ -280,7 +280,7 @@ char* QC_select(QC_Context *ctx, const char *prompt, const char **options, size_
             n += snprintf(frame + n, sizeof(frame) - n, "\x1b[1A\x1b[2K");
         for(int i = 0; i < num_options; ++i)
             n += snprintf(frame + n, sizeof(frame) - n,
-                    "  %s %s\n",
+                    " %s %s\n",
                     (i == selected_i ? ">" : " "),
                     options[i]);
         fwrite(frame, 1, n, stdout);
@@ -332,7 +332,7 @@ uint64_t QC_checkbox(QC_Context *ctx, const char *prompt, const char **options, 
         all_selected[i] = false;
 
     for(int i = 0; i < num_options; ++i)
-        printf("  %s %s %s\n",
+        printf(" %s %s %s\n",
             (i == selected_i ? ctx->arrow : " "),
             (all_selected[i] ? "\x1b[32m[X]\x1b[0m" : "[ ]"),
             options[i]);
@@ -379,7 +379,7 @@ uint64_t QC_checkbox(QC_Context *ctx, const char *prompt, const char **options, 
             n += snprintf(frame + n, sizeof(frame) - n, "\x1b[1A\x1b[2K");
         for(int i = 0; i < num_options; ++i)
             n += snprintf(frame + n, sizeof(frame) - n,
-                "  %s %s %s\n",
+                " %s %s %s\n",
                 (i == selected_i ? ctx->arrow : " "),
                 (all_selected[i] ? "\x1b[32m[X]\x1b[0m" : "[ ]"),
                 options[i]);
