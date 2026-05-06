@@ -9,9 +9,9 @@ Space - check a box
 Enter - select
 
 ## Context
-The library requires a context to be passed to each function (`QC_Context`).
+The library requires a context to be passed to each function (`CQ_Context`).
 
-It can be initialized with `QC_DEFAULT_CONTEXT` for basic usage, or you can initialize it yourself and fully customize it.
+It can be initialized with `CQ_DEFAULT_CONTEXT` for basic usage, or you can initialize it yourself and fully customize it.
 
 ### Struct
 
@@ -24,12 +24,12 @@ typedef struct {
     const char *q_color;
     const char *err_color;
     const char *arrow;
-} QC_Context;
+} CQ_Context;
 ```
 
 For customizing the colors, I'd strongly recommend using [this link](https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797) as reference.
 
-`ptrs` is a dynamic array of pointers that get stored inside function calls (e.g., `QC_text`) when allocating a buffer is required.
+`ptrs` is a dynamic array of pointers that get stored inside function calls (e.g., `CQ_text`) when allocating a buffer is required.
 
 `count` and `capacity` are used for the dynamic array reallocation.
 
@@ -43,94 +43,94 @@ For customizing the colors, I'd strongly recommend using [this link](https://gis
 
 ## Functions
 
-### QC_text
+### CQ_text
 A text prompt
 
-__Arguments__: (QC_Context *ctx, const char *prompt, size_t max_len)
+__Arguments__: (CQ_Context *ctx, const char *prompt, size_t max_len)
 
 __Return type__: char*
 
 __Example usage__:
 
 ```c
-QC_Context ctx = QC_DEFAULT_CONTEXT;
-char *name = QC_text(&ctx, "What is your name?", 16);
+CQ_Context ctx = CQ_DEFAULT_CONTEXT;
+char *name = CQ_text(&ctx, "What is your name?", 16);
 ...
-QC_free_all(&ctx);
+CQ_free_all(&ctx);
 ```
 
-### QC_password
+### CQ_password
 A password prompt
 
-__Arguments__: (QC_Context *ctx, const char *prompt, size_t max_len)
+__Arguments__: (CQ_Context *ctx, const char *prompt, size_t max_len)
 
 __Return type__: char*
 
 __Example usage__:
 
 ```c
-QC_Context ctx = QC_DEFAULT_CONTEXT;
-char *password = QC_password(&ctx, "Enter your password:", 16);
+CQ_Context ctx = CQ_DEFAULT_CONTEXT;
+char *password = CQ_password(&ctx, "Enter your password:", 16);
 ...
-QC_free_all(&ctx);
+CQ_free_all(&ctx);
 ```
 
-### QC_select
+### CQ_select
 A selection prompt
 
-__Arguments__: (QC_Context *ctx, const char *prompt, const char **options, size_t num_options)
+__Arguments__: (CQ_Context *ctx, const char *prompt, const char **options, size_t num_options)
 
 __Return type__: char*
 
 __Example usage__:
 
 ```c
-QC_Context ctx = QC_DEFAULT_CONTEXT;
+CQ_Context ctx = CQ_DEFAULT_CONTEXT;
 const char *options[] = {"fizz", "buzz", "fizzbuzz"};
-char *selected = QC_select(&ctx, "Select an option:", options, QC_ARRLEN(options));
+char *selected = CQ_select(&ctx, "Select an option:", options, CQ_ARRLEN(options));
 ...
-QC_free_all(&ctx);
+CQ_free_all(&ctx);
 ```
 
-### QC_checkbox
+### CQ_checkbox
 A multi-selection prompt
 
-__Arguments__: (QC_Context *ctx, const char *prompt, const char **options, size_t num_options)
+__Arguments__: (CQ_Context *ctx, const char *prompt, const char **options, size_t num_options)
 
 __Return type__: uint64_t
 
 __Example usage__:
 
 ```c
-QC_Context ctx = QC_DEFAULT_CONTEXT;
+CQ_Context ctx = CQ_DEFAULT_CONTEXT;
 const char *options[] = {"fizz", "buzz", "fizzbuzz"};
-uint64_t selected = QC_checkbox(&ctx, "Select options:", options, QC_ARRLEN(options));
+uint64_t selected = CQ_checkbox(&ctx, "Select options:", options, QC_ARRLEN(options));
 ...
-QC_free_all(&ctx);
+CQ_free_all(&ctx);
 ```
 
 And checking for selected options:
 
 ```c
-if(QC_CHECKED(selected, 0))
+if(CQ_CHECKED(selected, 0))
 {
   printf("fizz selected\n");
 }
 ...
 ```
 
-### QC_confirm
+### CQ_confirm
 A simple confirmation prompt
 
-__Arguments__: (QC_Context *ctx, const char *prompt)
+__Arguments__: (CQ_Context *ctx, const char *prompt)
 
 __Return type__: bool
 
 __Example usage__:
 
 ```c
-QC_Context ctx = QC_DEFAULT_CONTEXT;
-bool start = QC_confirm(&ctx, "Do you want to start?");
+CQ_Context ctx = CQ_DEFAULT_CONTEXT;
+bool start = CQ_confirm(&ctx, "Do you want to start?");
 ...
-QC_free_all(&ctx);
+CQ_free_all(&ctx);
 ```
