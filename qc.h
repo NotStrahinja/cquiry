@@ -70,10 +70,10 @@ void QC_free_all(QC_Context *ctx)
 {
     for(size_t i = 0; i < ctx->count; ++i)
         free(ctx->ptrs[i]);
+    free(ctx->ptrs);
     ctx->ptrs = NULL;
     ctx->count = 0;
     ctx->capacity = 0;
-    free(ctx->ptrs);
 }
 
 char* QC_text(QC_Context *ctx, const char *prompt, size_t max_len)
