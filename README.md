@@ -26,7 +26,7 @@ Here's the code for a simple demo program from the preview:
 
 int main()
 {
-    QC_Context ctx = {0};
+    QC_Context ctx = QC_DEFAULT_CONTEXT;
 
     char *name = QC_text(&ctx, "What is your name?", 16);
 
@@ -36,15 +36,17 @@ int main()
     char *select = QC_select(&ctx, "Select a fruit:", fruits, QC_ARRLEN(fruits));
 
     const char *features[] = {"Bla bla", "Demo", "123"};
-    uint64_t selected_features = QC_checkbox("Select features:", features, QC_ARRLEN(features));
+    uint64_t selected_features = QC_checkbox(&ctx, "Select features:", features, QC_ARRLEN(features));
 
-    bool confirm = QC_confirm("Finish demo?");
+    bool confirm = QC_confirm(&ctx, "Finish demo?");
 
     QC_free_all(&ctx);
 
     return 0;
 }
 ```
+
+If you want to use the default context config, you can use the `QC_DEFAULT_CONTEXT` macro. In case you want to customize the colors/escape sequences, you can do so.
 
 Additionally, for checking if a checkbox is checked, you can use the `QC_CHECKED` macro like this:
 
@@ -61,8 +63,8 @@ if(QC_CHECKED(selected_features, 0 /* "Bla bla" */))
 |QC_text|(QC_Context *ctx, const char *prompt, size_t max_len)|char*|
 |QC_password|(QC_Context *ctx, const char *prompt, size_t max_len)|char*|
 |QC_select|(QC_Context *ctx, const char *prompt, const char **options, size_t num_options)|char*|
-|QC_checkbox|(const char *prompt, const char **options, size_t num_options)|uint64_t|
-|QC_confirm|(const char *prompt)|bool|
+|QC_checkbox|(QC_Context *ctx, const char *prompt, const char **options, size_t num_options)|uint64_t|
+|QC_confirm|(QC_Context *ctx, const char *prompt)|bool|
 
 ## License
 This project uses the [MIT License](https://github.com/NotStrahinja/cquiry/blob/main/LICENSE).
