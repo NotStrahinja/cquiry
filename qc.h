@@ -19,7 +19,8 @@
 #define ERR_COLOR "\x1b[31m"
 #define ARROW "\b>"
 
-#define BUF(x) x, sizeof(x)
+#define QC_CHECKED(result, i) ((result) & (1ULL << (i)))
+#define QC_ARRLEN(arr) (sizeof(arr)/sizeof(arr[0]))
 
 #ifndef _WIN32
 #include <unistd.h>
