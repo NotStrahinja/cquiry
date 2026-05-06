@@ -55,6 +55,7 @@ __Example usage__:
 ```c
 QC_Context ctx = QC_DEFAULT_CONTEXT;
 char *name = QC_text(&ctx, "What is your name?", 16);
+...
 QC_free_all(&ctx);
 ```
 
@@ -70,6 +71,7 @@ __Example usage__:
 ```c
 QC_Context ctx = QC_DEFAULT_CONTEXT;
 char *password = QC_password(&ctx, "Enter your password:", 16);
+...
 QC_free_all(&ctx);
 ```
 
@@ -86,6 +88,8 @@ __Example usage__:
 QC_Context ctx = QC_DEFAULT_CONTEXT;
 const char *options[] = {"fizz", "buzz", "fizzbuzz"};
 char *selected = QC_select(&ctx, "Select an option:", options, QC_ARRLEN(options));
+...
+QC_free_all(&ctx);
 ```
 
 ### QC_checkbox
@@ -101,6 +105,8 @@ __Example usage__:
 QC_Context ctx = QC_DEFAULT_CONTEXT;
 const char *options[] = {"fizz", "buzz", "fizzbuzz"};
 uint64_t selected = QC_checkbox(&ctx, "Select options:", options, QC_ARRLEN(options));
+...
+QC_free_all(&ctx);
 ```
 
 And checking for selected options:
@@ -125,4 +131,6 @@ __Example usage__:
 ```c
 QC_Context ctx = QC_DEFAULT_CONTEXT;
 bool start = QC_confirm(&ctx, "Do you want to start?");
+...
+QC_free_all(&ctx);
 ```
