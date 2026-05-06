@@ -48,7 +48,7 @@ int main()
 
     bool confirm = CQ_confirm(&ctx, "Finish demo?");
 
-    CQ_free_all(&ctx);
+    CQ_cleanup(&ctx);
 
     return 0;
 }
