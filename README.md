@@ -3,7 +3,7 @@ A single header C library for interactive CLI prompts.
 
 ## Preview
 
-<img width="544" height="365" alt="demo" src="https://github.com/user-attachments/assets/912dcc47-2b87-4ea3-8f3b-198ef9618179" />
+<img width="544" height="365" alt="demo" src="https://github.com/user-attachments/assets/6eff3cda-bdce-4fbb-b388-6a22912b857c" />
 
 ## Usage
 In order to use the library, include this at the top of your C file:
