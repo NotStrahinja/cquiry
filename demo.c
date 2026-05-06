@@ -1,23 +1,23 @@
-#define QC_IMPLEMENTATION
-#include "qc.h"
+#define CQ_IMPLEMENTATION
+#include "cq.h"
 
 int main()
 {
-    QC_Context ctx = QC_DEFAULT_CONTEXT;
+    CQ_Context ctx = CQ_DEFAULT_CONTEXT;
 
-    char *name = QC_text(&ctx, "What is your name?", 16);
+    char *name = CQ_text(&ctx, "What is your name?", 16);
 
-    char *password = QC_password(&ctx, "Enter your password:", 16);
+    char *password = CQ_password(&ctx, "Enter your password:", 16);
 
     const char *fruits[] = {"Apple", "Banana", "Orange"};
-    char *select = QC_select(&ctx, "Select a fruit:", fruits, QC_ARRLEN(fruits));
+    char *select = CQ_select(&ctx, "Select a fruit:", fruits, CQ_ARRLEN(fruits));
 
     const char *features[] = {"Bla bla", "Demo", "123"};
-    uint64_t selected_features = QC_checkbox(&ctx, "Select features:", features, QC_ARRLEN(features));
+    uint64_t selected_features = CQ_checkbox(&ctx, "Select features:", features, CQ_ARRLEN(features));
 
-    bool confirm = QC_confirm(&ctx, "Finish demo?");
+    bool confirm = CQ_confirm(&ctx, "Finish demo?");
 
-    QC_free_all(&ctx);
+    CQ_free_all(&ctx);
 
     return 0;
 }
