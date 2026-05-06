@@ -44,7 +44,6 @@ typedef struct {
     const char *q_color;
     const char *err_color;
     const char *arrow;
-    bool sync;
 } QC_Context;
 
 char *QC_alloc(QC_Context *ctx, size_t size);
