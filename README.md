@@ -9,6 +9,10 @@ A single header C library for interactive CLI prompts.
 
 Just download `qc.h` and drop it in your project. Done.
 
+## Platforms
+
+This library is fully cross-platform and can compile from C99 to C23.
+
 ## Usage
 In order to use the library, include this at the top of your C file:
 ```c
