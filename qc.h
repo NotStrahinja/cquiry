@@ -23,7 +23,7 @@
     THEME_COLOR,                              \
     Q_COLOR,                             \
     ERR_COLOR,                                          \
-    ARROW, QC_sync_supported}
+    ARROW}
 
 #define QC_CHECKED(result, i) ((result) & (1ULL << (i)))
 #define QC_ARRLEN(arr) (sizeof(arr)/sizeof(arr[0]))
@@ -53,47 +53,8 @@ char* QC_password(QC_Context *ctx, const char *prompt, size_t max_len);
 char* QC_select(QC_Context *ctx, const char *prompt, const char **options, size_t num_options);
 bool QC_confirm(QC_Context *ctx, const char *prompt);
 uint64_t QC_checkbox(QC_Context *ctx, const char *prompt, const char **options, size_t num_options);
-bool QC_sync_supported();
 
 #ifdef QC_IMPLEMENTATION
-bool QC_sync_supported()
-{
-#ifdef _WIN32
-    HANDLE hin = GetStdHandle(STD_INPUT_HANDLE);
-    HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
-    DWORD old_in, old_out;
-    GetConsoleMode(hin, &old_in);
-    GetConsoleMode(hout, &old_out);
-    SetConsoleMode(hin, old_in & ~ENABLE_LINE_INPUT & ~ENABLE_ECHO_INPUT);
-    SetConsoleMode(hout, old_out | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
-#else
-    struct termios oldt, newt;
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
-    newt.c_lflag &= ~(ICANON | ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-#endif
-
-    fputs("\x1b[?2026$p", stdout);
-    fflush(stdout);
-
-    char buf[32] = {0};
-    int i = 0;
-    int c;
-    while(i < sizeof(buf) - 1 && (c = FUNC) != 'y')
-        buf[i++] = c;
-    buf[i] = 'y';
-
-#ifdef _WIN32
-    SetConsoleMode(hin, old_in);
-    SetConsoleMode(hout, old_out);
-#else
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-#endif
-
-    return strstr(buf, "2026;1") || strstr(buf, "2026;2");
-}
-
 char *QC_alloc(QC_Context *ctx, size_t size)
 {
     char *ptr = malloc(size);
