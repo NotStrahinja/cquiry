@@ -56,6 +56,24 @@ bool CQ_confirm(CQ_Context *ctx, const char *prompt);
 uint64_t CQ_checkbox(CQ_Context *ctx, const char *prompt, const char **options, size_t num_options);
 
 #ifdef CQ_IMPLEMENTATION
+
+#ifndef _WIN32
+int own_getch()
+{
+    struct termios oldt, newt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+    int c = getchar();
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    return c;
+}
+#endif
+
 char *CQ_alloc(CQ_Context *ctx, size_t size)
 {
     char *ptr = malloc(size);
