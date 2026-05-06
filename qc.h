@@ -17,13 +17,13 @@
 #define THEME_COLOR "\x1b[38;2;255;157;0m"
 #define Q_COLOR "\x1b[38;2;92;124;151m"
 #define ERR_COLOR "\x1b[31m"
-#define ARROW "\b>"
+#define ARROW ">"
 
 #define QC_DEFAULT_CONTEXT {NULL, 0, 0,                  \
     THEME_COLOR,                              \
     Q_COLOR,                             \
     ERR_COLOR,                                          \
-    ARROW}
+    ARROW, QC_sync_supported}
 
 #define QC_CHECKED(result, i) ((result) & (1ULL << (i)))
 #define QC_ARRLEN(arr) (sizeof(arr)/sizeof(arr[0]))
@@ -43,6 +43,7 @@ typedef struct {
     const char *q_color;
     const char *err_color;
     const char *arrow;
+    bool sync;
 } QC_Context;
 
 char *QC_alloc(QC_Context *ctx, size_t size);
@@ -52,8 +53,47 @@ char* QC_password(QC_Context *ctx, const char *prompt, size_t max_len);
 char* QC_select(QC_Context *ctx, const char *prompt, const char **options, size_t num_options);
 bool QC_confirm(QC_Context *ctx, const char *prompt);
 uint64_t QC_checkbox(QC_Context *ctx, const char *prompt, const char **options, size_t num_options);
+bool QC_sync_supported();
 
 #ifdef QC_IMPLEMENTATION
+bool QC_sync_supported()
+{
+#ifdef _WIN32
+    HANDLE hin = GetStdHandle(STD_INPUT_HANDLE);
+    HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD old_in, old_out;
+    GetConsoleMode(hin, &old_in);
+    GetConsoleMode(hout, &old_out);
+    SetConsoleMode(hin, old_in & ~ENABLE_LINE_INPUT & ~ENABLE_ECHO_INPUT);
+    SetConsoleMode(hout, old_out | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+#else
+    struct termios oldt, newt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+#endif
+
+    fputs("\x1b[?2026$p", stdout);
+    fflush(stdout);
+
+    char buf[32] = {0};
+    int i = 0;
+    int c;
+    while(i < sizeof(buf) - 1 && (c = FUNC) != 'y')
+        buf[i++] = c;
+    buf[i] = 'y';
+
+#ifdef _WIN32
+    SetConsoleMode(hin, old_in);
+    SetConsoleMode(hout, old_out);
+#else
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+#endif
+
+    return strstr(buf, "2026;1") || strstr(buf, "2026;2");
+}
+
 char *QC_alloc(QC_Context *ctx, size_t size)
 {
     char *ptr = malloc(size);
@@ -191,10 +231,13 @@ char* QC_select(QC_Context *ctx, const char *prompt, const char **options, size_
 
     int selected_i = 0;
     int key;
+    char frame[4096];
+    int n = 0;
+    for(int i = 0; i < num_options; ++i)
+        printf("  %s %s\n", (i == selected_i ? ctx->arrow : " "), options[i]);
     do
     {
-        for(int i = 0; i < num_options; ++i)
-            printf("  %s %s\n", (i == selected_i ? ctx->arrow : ""), options[i]);
+        n = 0;
         key = FUNC;
 #ifdef _WIN32
         if(key == 0 || key == 224)
@@ -232,14 +275,23 @@ char* QC_select(QC_Context *ctx, const char *prompt, const char **options, size_
 #endif
         if(selected_i < 0) selected_i = num_options - 1;
         if(selected_i >= num_options) selected_i = 0;
+
         for(int i = 0; i < num_options; ++i)
-            printf("\x1b[1A\x1b[2K");
+            n += snprintf(frame + n, sizeof(frame) - n, "\x1b[1A\x1b[2K");
+        for(int i = 0; i < num_options; ++i)
+            n += snprintf(frame + n, sizeof(frame) - n,
+                    "  %s %s\n",
+                    (i == selected_i ? ">" : " "),
+                    options[i]);
+        fwrite(frame, 1, n, stdout);
+        fflush(stdout);
     } while(key != CONFIRM);
 
     char *selected = QC_alloc(ctx, strlen(options[selected_i]) + 1);
     strcpy(selected, options[selected_i]);
 
-    printf("\x1b[1A\x1b[2K");
+    for(int i = 0; i < num_options + 1; ++i)
+        printf("\x1b[1A\x1b[2K");
     printf("%s?\x1b[0m %s \x1b[1m%s%s\n", ctx->q_color, prompt, ctx->theme_color, selected);
 
     printf("\x1b[?25h");
@@ -272,26 +324,25 @@ uint64_t QC_checkbox(QC_Context *ctx, const char *prompt, const char **options, 
     uint64_t selected = 0;
 
     printf("%s?\x1b[0m %s\n", ctx->q_color, prompt);
-
     printf("\x1b[?25l");
 
     int selected_i = 0;
     bool all_selected[num_options];
     for(int i = 0; i < num_options; ++i)
         all_selected[i] = false;
+
+    for(int i = 0; i < num_options; ++i)
+        printf("  %s %s %s\n",
+            (i == selected_i ? ctx->arrow : " "),
+            (all_selected[i] ? "\x1b[32m[X]\x1b[0m" : "[ ]"),
+            options[i]);
+
     int key;
+    char frame[4096];
+    int n;
     do
     {
-        for(int i = 0; i < num_options; ++i)
-        {
-            printf("  ");
-            if(i == selected_i)
-                printf("%s", ctx->arrow);
-            if(all_selected[i])
-                printf(" \x1b[32m[X]\x1b[0m");
-            else printf(" [ ]");
-            printf(" %s\n", options[i]);
-        }
+        n = 0;
         key = FUNC;
 #ifdef _WIN32
         if(key == 0 || key == 224)
@@ -299,12 +350,8 @@ uint64_t QC_checkbox(QC_Context *ctx, const char *prompt, const char **options, 
             int key2 = FUNC;
             switch(key2)
             {
-                case 72:
-                    selected_i--;
-                    break;
-                case 80:
-                    selected_i++;
-                    break;
+                case 72: selected_i--; break;
+                case 80: selected_i++; break;
             }
         }
 #else
@@ -312,44 +359,47 @@ uint64_t QC_checkbox(QC_Context *ctx, const char *prompt, const char **options, 
         {
             int key1 = FUNC;
             int key2 = FUNC;
-
             if(key1 == '[')
             {
                 switch(key2)
                 {
-                    case 'A':
-                        selected_i--;
-                        break;
-                    case 'B':
-                        selected_i++;
-                        break;
+                    case 'A': selected_i--; break;
+                    case 'B': selected_i++; break;
                 }
             }
         }
 #endif
         if(key == ' ')
-        {
             all_selected[selected_i] = !all_selected[selected_i];
-        }
+
         if(selected_i < 0) selected_i = num_options - 1;
         if(selected_i >= num_options) selected_i = 0;
+
         for(int i = 0; i < num_options; ++i)
-            printf("\x1b[1A\x1b[2K");
+            n += snprintf(frame + n, sizeof(frame) - n, "\x1b[1A\x1b[2K");
+        for(int i = 0; i < num_options; ++i)
+            n += snprintf(frame + n, sizeof(frame) - n,
+                "  %s %s %s\n",
+                (i == selected_i ? ctx->arrow : " "),
+                (all_selected[i] ? "\x1b[32m[X]\x1b[0m" : "[ ]"),
+                options[i]);
+
+        fwrite(frame, 1, n, stdout);
+        fflush(stdout);
     } while(key != CONFIRM);
-    
+
     for(int i = 0; i < num_options; ++i)
-    {
         if(all_selected[i])
             selected |= (1ULL << i);
-    }
 
-    printf("\x1b[1A\x1b[2K");
+    for(int i = 0; i < num_options + 1; ++i)
+        printf("\x1b[1A\x1b[2K");
     printf("%s?\x1b[0m %s \x1b[1m%s", ctx->q_color, prompt, ctx->theme_color);
     for(int i = 0; i < num_options; ++i)
         if(selected & (1ULL << i))
             printf("%s ", options[i]);
 
-    printf("\x1b[?25h\n");
+    printf("\x1b[?25h\n\x1b[0m");
 
     return selected;
 }
