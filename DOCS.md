@@ -56,7 +56,7 @@ __Example usage__:
 CQ_Context ctx = CQ_DEFAULT_CONTEXT;
 char *name = CQ_text(&ctx, "What is your name?", 16);
 ...
-CQ_free_all(&ctx);
+CQ_cleanup(&ctx);
 ```
 
 ### CQ_password
@@ -72,7 +72,7 @@ __Example usage__:
 CQ_Context ctx = CQ_DEFAULT_CONTEXT;
 char *password = CQ_password(&ctx, "Enter your password:", 16);
 ...
-CQ_free_all(&ctx);
+CQ_cleanup(&ctx);
 ```
 
 ### CQ_select
@@ -89,7 +89,7 @@ CQ_Context ctx = CQ_DEFAULT_CONTEXT;
 const char *options[] = {"fizz", "buzz", "fizzbuzz"};
 char *selected = CQ_select(&ctx, "Select an option:", options, CQ_ARRLEN(options));
 ...
-CQ_free_all(&ctx);
+CQ_cleanup(&ctx);
 ```
 
 ### CQ_checkbox
@@ -106,7 +106,7 @@ CQ_Context ctx = CQ_DEFAULT_CONTEXT;
 const char *options[] = {"fizz", "buzz", "fizzbuzz"};
 uint64_t selected = CQ_checkbox(&ctx, "Select options:", options, QC_ARRLEN(options));
 ...
-CQ_free_all(&ctx);
+CQ_cleanup(&ctx);
 ```
 
 And checking for selected options:
@@ -132,5 +132,5 @@ __Example usage__:
 CQ_Context ctx = CQ_DEFAULT_CONTEXT;
 bool start = CQ_confirm(&ctx, "Do you want to start?");
 ...
-CQ_free_all(&ctx);
+CQ_cleanup(&ctx);
 ```
