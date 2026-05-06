@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdint.h>
-#include <stdbool.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -19,6 +18,12 @@
 #define Q_COLOR "\x1b[38;2;92;124;151m"
 #define ERR_COLOR "\x1b[31m"
 #define ARROW "\b>"
+
+#define QC_DEFAULT_CONTEXT {NULL, 0, 0,                  \
+    THEME_COLOR,                              \
+    Q_COLOR,                             \
+    ERR_COLOR,                                          \
+    ARROW}
 
 #define QC_CHECKED(result, i) ((result) & (1ULL << (i)))
 #define QC_ARRLEN(arr) (sizeof(arr)/sizeof(arr[0]))
@@ -34,15 +39,19 @@ typedef struct {
     char **ptrs;
     size_t count;
     size_t capacity;
+    const char *theme_color;
+    const char *q_color;
+    const char *err_color;
+    const char *arrow;
 } QC_Context;
 
 char *QC_alloc(QC_Context *ctx, size_t size);
 void QC_free_all(QC_Context *ctx);
 char* QC_text(QC_Context *ctx, const char *prompt, size_t max_len);
 char* QC_password(QC_Context *ctx, const char *prompt, size_t max_len);
-const char* QC_select(const char *prompt, const char **options, size_t num_options);
-bool QC_confirm(const char *prompt);
-uint64_t QC_checkbox(const char *prompt, const char **options, size_t num_options);
+char* QC_select(QC_Context *ctx, const char *prompt, const char **options, size_t num_options);
+bool QC_confirm(QC_Context *ctx, const char *prompt);
+uint64_t QC_checkbox(QC_Context *ctx, const char *prompt, const char **options, size_t num_options);
 
 #ifdef QC_IMPLEMENTATION
 char *QC_alloc(QC_Context *ctx, size_t size)
@@ -81,7 +90,7 @@ char* QC_text(QC_Context *ctx, const char *prompt, size_t max_len)
 {
     char *buf = QC_alloc(ctx, max_len);
     if(!buf) return NULL;
-    printf(Q_COLOR "?\x1b[0m %s \x1b[1m" THEME_COLOR, prompt);
+    printf("%s?\x1b[0m %s \x1b[1m%s", ctx->q_color, prompt, ctx->theme_color);
     fgets(buf, max_len, stdin);
     buf[strcspn(buf, "\n")] = '\0';
     printf("\x1b[0m");
@@ -92,7 +101,7 @@ char* QC_password(QC_Context *ctx, const char *prompt, size_t max_len)
 {
     char *buf = QC_alloc(ctx, max_len);
     if(!buf) return NULL;
-    printf(Q_COLOR "?\x1b[0m %s \x1b[1m" THEME_COLOR, prompt);
+    printf("%s?\x1b[0m %s \x1b[1m%s", ctx->q_color, prompt, ctx->theme_color);
     if(max_len == 0)
         return NULL;
 
@@ -125,7 +134,7 @@ char* QC_password(QC_Context *ctx, const char *prompt, size_t max_len)
 #endif
     buf[strcspn(buf, "\n")] = '\0';
 
-    printf(Q_COLOR "?\x1b[0m Confirm: \x1b[1m" THEME_COLOR);
+    printf("%s?\x1b[0m Confirm: \x1b[1m%s", ctx->q_color, ctx->theme_color);
     char *confirm = calloc(max_len, sizeof(char));
     if(!confirm) { return NULL; }
 
@@ -159,7 +168,7 @@ char* QC_password(QC_Context *ctx, const char *prompt, size_t max_len)
 
     if(strcmp(buf, confirm) != 0)
     {
-        printf("\x1b[0m" ERR_COLOR "X\x1b[0m Passwords do not match.\n");
+        printf("\x1b[0m%sX\x1b[0m Passwords do not match.\n", ctx->err_color);
         free(confirm);
         return NULL;
     }
@@ -168,15 +177,15 @@ char* QC_password(QC_Context *ctx, const char *prompt, size_t max_len)
 
     printf("\x1b[1A\x1b[2K");
     printf("\x1b[1A\x1b[2K");
-    printf(Q_COLOR "?\x1b[0m %s \x1b[1m" THEME_COLOR "********", prompt);
+    printf("%s?\x1b[0m %s \x1b[1m%s********", ctx->q_color, prompt, ctx->theme_color);
     printf("\x1b[0m\n");
 
     return buf;
 }
 
-const char* QC_select(const char *prompt, const char **options, size_t num_options)
+char* QC_select(QC_Context *ctx, const char *prompt, const char **options, size_t num_options)
 {
-    printf(Q_COLOR "?\x1b[0m %s\n", prompt);
+    printf("%s?\x1b[0m %s\n", ctx->q_color, prompt);
 
     printf("\x1b[?25l");
 
@@ -185,7 +194,7 @@ const char* QC_select(const char *prompt, const char **options, size_t num_optio
     do
     {
         for(int i = 0; i < num_options; ++i)
-            printf("  %s %s\n", (i == selected_i ? ">" : " "), options[i]);
+            printf("  %s %s\n", (i == selected_i ? ctx->arrow : ""), options[i]);
         key = FUNC;
 #ifdef _WIN32
         if(key == 0 || key == 224)
@@ -227,19 +236,20 @@ const char* QC_select(const char *prompt, const char **options, size_t num_optio
             printf("\x1b[1A\x1b[2K");
     } while(key != CONFIRM);
 
-    const char* selected = options[selected_i];
+    char *selected = QC_alloc(ctx, strlen(options[selected_i]) + 1);
+    strcpy(selected, options[selected_i]);
 
     printf("\x1b[1A\x1b[2K");
-    printf(Q_COLOR "?\x1b[0m %s \x1b[1m" THEME_COLOR "%s\n", prompt, selected);
+    printf("%s?\x1b[0m %s \x1b[1m%s%s\n", ctx->q_color, prompt, ctx->theme_color, selected);
 
     printf("\x1b[?25h");
 
     return selected;
 }
 
-bool QC_confirm(const char *prompt)
+bool QC_confirm(QC_Context *ctx, const char *prompt)
 {
-    printf(Q_COLOR "?\x1b[0m %s (Y/n) \x1b[1m" THEME_COLOR, prompt);
+    printf("%s?\x1b[0m %s (Y/n) \x1b[1m%s", ctx->q_color, prompt, ctx->theme_color);
 
     bool confirmed;
     int key = FUNC;
@@ -257,11 +267,11 @@ bool QC_confirm(const char *prompt)
     return confirmed;
 }
 
-uint64_t QC_checkbox(const char *prompt, const char **options, size_t num_options)
+uint64_t QC_checkbox(QC_Context *ctx, const char *prompt, const char **options, size_t num_options)
 {
     uint64_t selected = 0;
 
-    printf(Q_COLOR "?\x1b[0m %s\n", prompt);
+    printf("%s?\x1b[0m %s\n", ctx->q_color, prompt);
 
     printf("\x1b[?25l");
 
@@ -276,7 +286,7 @@ uint64_t QC_checkbox(const char *prompt, const char **options, size_t num_option
         {
             printf("  ");
             if(i == selected_i)
-                printf(ARROW);
+                printf("%s", ctx->arrow);
             if(all_selected[i])
                 printf(" \x1b[32m[X]\x1b[0m");
             else printf(" [ ]");
@@ -334,12 +344,12 @@ uint64_t QC_checkbox(const char *prompt, const char **options, size_t num_option
     }
 
     printf("\x1b[1A\x1b[2K");
-    printf(Q_COLOR "?\x1b[0m %s \x1b[1m" THEME_COLOR, prompt);
+    printf("%s?\x1b[0m %s \x1b[1m%s", ctx->q_color, prompt, ctx->theme_color);
     for(int i = 0; i < num_options; ++i)
         if(selected & (1ULL << i))
             printf("%s ", options[i]);
 
-    printf("\x1b[?25h");
+    printf("\x1b[?25h\n");
 
     return selected;
 }
