@@ -7,6 +7,7 @@
 #include <ctype.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <assert.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -44,7 +45,6 @@ typedef struct {
     const char *q_color;
     const char *err_color;
     const char *arrow;
-    bool sync;
 } CQ_Context;
 
 char *CQ_alloc(CQ_Context *ctx, size_t size);
@@ -76,13 +76,13 @@ int own_getch()
 
 char *CQ_alloc(CQ_Context *ctx, size_t size)
 {
-    char *ptr = malloc(size);
+    char *ptr = (char*)malloc(size);
     if(!ptr) return NULL;
 
     if(ctx->count == ctx->capacity)
     {
         size_t new_cap = ctx->capacity ? ctx->capacity * 2 : 8;
-        char **new_ptrs = realloc(ctx->ptrs, new_cap * sizeof(char*));
+        char **new_ptrs = (char**)realloc(ctx->ptrs, new_cap * sizeof(char*));
         if(!new_ptrs)
         {
             free(ptr);
@@ -119,6 +119,8 @@ char* CQ_text(CQ_Context *ctx, const char *prompt, size_t max_len)
 
 char* CQ_password(CQ_Context *ctx, const char *prompt, size_t max_len)
 {
+    printf("\x1b[0m");
+
     char *buf = CQ_alloc(ctx, max_len);
     if(!buf) return NULL;
     printf("%s?\x1b[0m %s \x1b[1m%s", ctx->q_color, prompt, ctx->theme_color);
@@ -154,8 +156,8 @@ char* CQ_password(CQ_Context *ctx, const char *prompt, size_t max_len)
 #endif
     buf[strcspn(buf, "\n")] = '\0';
 
-    printf("%s?\x1b[0m Confirm: \x1b[1m%s", ctx->q_color, ctx->theme_color);
-    char *confirm = calloc(max_len, sizeof(char));
+    printf("\x1b[0m%s?\x1b[0m Confirm: \x1b[1m%s", ctx->q_color, ctx->theme_color);
+    char *confirm = (char*)calloc(max_len, sizeof(char));
     if(!confirm) { return NULL; }
 
 #ifdef _WIN32
@@ -197,7 +199,7 @@ char* CQ_password(CQ_Context *ctx, const char *prompt, size_t max_len)
 
     printf("\x1b[1A\x1b[2K");
     printf("\x1b[1A\x1b[2K");
-    printf("%s?\x1b[0m %s \x1b[1m%s********", ctx->q_color, prompt, ctx->theme_color);
+    printf("\x1b[0m%s?\x1b[0m %s \x1b[1m%s********", ctx->q_color, prompt, ctx->theme_color);
     printf("\x1b[0m\n");
 
     return buf;
@@ -205,6 +207,8 @@ char* CQ_password(CQ_Context *ctx, const char *prompt, size_t max_len)
 
 char* CQ_select(CQ_Context *ctx, const char *prompt, const char **options, size_t num_options)
 {
+    printf("\x1b[0m");
+
     printf("%s?\x1b[0m %s\n", ctx->q_color, prompt);
 
     printf("\x1b[?25l");
@@ -212,12 +216,11 @@ char* CQ_select(CQ_Context *ctx, const char *prompt, const char **options, size_
     int selected_i = 0;
     int key;
     char frame[4096];
-    int n = 0;
     for(int i = 0; i < num_options; ++i)
         printf(" %s %s\n", (i == selected_i ? ctx->arrow : " "), options[i]);
     do
     {
-        n = 0;
+        int n = 0;
         key = FUNC;
 #ifdef _WIN32
         if(key == 0 || key == 224)
@@ -261,7 +264,7 @@ char* CQ_select(CQ_Context *ctx, const char *prompt, const char **options, size_
         for(int i = 0; i < num_options; ++i)
             n += snprintf(frame + n, sizeof(frame) - n,
                     " %s %s\n",
-                    (i == selected_i ? ">" : " "),
+                    (i == selected_i ? ctx->arrow : " "),
                     options[i]);
         fwrite(frame, 1, n, stdout);
         fflush(stdout);
@@ -269,6 +272,8 @@ char* CQ_select(CQ_Context *ctx, const char *prompt, const char **options, size_
 
     char *selected = CQ_alloc(ctx, strlen(options[selected_i]) + 1);
     strcpy(selected, options[selected_i]);
+
+    printf("\x1b[0m");
 
     for(int i = 0; i < num_options + 1; ++i)
         printf("\x1b[1A\x1b[2K");
@@ -281,6 +286,8 @@ char* CQ_select(CQ_Context *ctx, const char *prompt, const char **options, size_
 
 bool CQ_confirm(CQ_Context *ctx, const char *prompt)
 {
+    printf("\x1b[0m");
+
     printf("%s?\x1b[0m %s (Y/n) \x1b[1m%s", ctx->q_color, prompt, ctx->theme_color);
 
     bool confirmed;
@@ -303,11 +310,13 @@ uint64_t CQ_checkbox(CQ_Context *ctx, const char *prompt, const char **options, 
 {
     uint64_t selected = 0;
 
+    printf("\x1b[0m");
     printf("%s?\x1b[0m %s\n", ctx->q_color, prompt);
     printf("\x1b[?25l");
 
     int selected_i = 0;
-    bool all_selected[num_options];
+    assert(num_options <= 64);
+    bool *all_selected = (bool*)calloc(num_options, sizeof(bool));
     for(int i = 0; i < num_options; ++i)
         all_selected[i] = false;
 
@@ -319,10 +328,9 @@ uint64_t CQ_checkbox(CQ_Context *ctx, const char *prompt, const char **options, 
 
     int key;
     char frame[4096];
-    int n;
     do
     {
-        n = 0;
+        int n = 0;
         key = FUNC;
 #ifdef _WIN32
         if(key == 0 || key == 224)
@@ -368,9 +376,13 @@ uint64_t CQ_checkbox(CQ_Context *ctx, const char *prompt, const char **options, 
         fflush(stdout);
     } while(key != CONFIRM);
 
+    int feature_count = 0;
+
     for(int i = 0; i < num_options; ++i)
         if(all_selected[i])
-            selected |= (1ULL << i);
+            selected |= (1ULL << i), feature_count++;
+
+    printf("\x1b[0m");
 
     for(int i = 0; i < num_options + 1; ++i)
         printf("\x1b[1A\x1b[2K");
@@ -378,6 +390,8 @@ uint64_t CQ_checkbox(CQ_Context *ctx, const char *prompt, const char **options, 
     for(int i = 0; i < num_options; ++i)
         if(selected & (1ULL << i))
             printf("%s ", options[i]);
+    if(feature_count == 0)
+        printf("None");
 
     printf("\x1b[?25h\n\x1b[0m");
 
