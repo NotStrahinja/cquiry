@@ -310,6 +310,8 @@ uint64_t CQ_checkbox(CQ_Context *ctx, const char *prompt, const char **options, 
 {
     uint64_t selected = 0;
 
+    assert(num_options <= 64);
+
     printf("\x1b[0m");
     printf("%s?\x1b[0m %s\n", ctx->q_color, prompt);
     printf("\x1b[?25l");
