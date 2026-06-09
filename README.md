@@ -3,7 +3,7 @@ A single header C library for interactive CLI prompts.
 
 ## Preview
 
-<img width="726" height="438" alt="demo3" src="https://github.com/user-attachments/assets/fda0d7e4-97fc-4cb7-840e-1d7d1d5efc21" />
+<img width="726" height="440" alt="demo3" src="https://github.com/user-attachments/assets/5fd6a408-753f-4010-b951-fb9fd8feba3e" />
 
 ## Quickstart
 
