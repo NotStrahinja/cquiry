@@ -1,4 +1,7 @@
 # cquiry
+
+![Static Badge](https://img.shields.io/badge/Version-1.3-blue) ![Static Badge](https://img.shields.io/badge/License-MIT%20License-green) 
+
 A single header C library for interactive CLI prompts.
 
 ## Preview
