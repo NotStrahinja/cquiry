@@ -1,6 +1,6 @@
 # cquiry
 
-![Static Badge](https://img.shields.io/badge/Version-1.3-blue) ![Static Badge](https://img.shields.io/badge/License-MIT%20License-green) 
+![Static Badge](https://img.shields.io/badge/Version-1.4-blue) ![Static Badge](https://img.shields.io/badge/License-MIT%20License-green) 
 
 A single header C library for interactive CLI prompts.
 
@@ -42,12 +42,18 @@ int main()
     char *name = CQ_text(&ctx, "What is your name?", 16);
 
     char *password = CQ_password(&ctx, "Enter your password:", 16);
+    CQ_free_secure(&ctx, password); // Wipes the memory first then frees
 
-    const char *fruits[] = {"Apple", "Banana", "Orange"};
+    const char *fruits[] = { "Apple", "Banana", "Orange" };
     char *select = CQ_select(&ctx, "Select a fruit:", fruits, CQ_ARRLEN(fruits));
 
-    const char *features[] = {"Bla bla", "Demo", "123"};
+    const char *features[] = { "Bla bla", "Demo", "123" };
     uint64_t selected_features = CQ_checkbox(&ctx, "Select features:", features, CQ_ARRLEN(features));
+
+    if (CQ_CHECKED(selected_features, 0 /* Bla Bla */))
+    {
+        printf("[+] Bla Bla checked!\n");
+    }
 
     bool confirm = CQ_confirm(&ctx, "Finish demo?");
 
@@ -62,20 +68,24 @@ If you want to use the default context config, you can use the `CQ_DEFAULT_CONTE
 Additionally, for checking if a checkbox is checked, you can use the `CQ_CHECKED` macro like this:
 
 ```c
-if(CQ_CHECKED(selected_features, 0 /* "Bla bla" */))
+if (CQ_CHECKED(selected_features, 0 /* "Bla bla" */))
 {
-   ...
+   printf("[+] Bla Bla checked!\n");
 }
 ```
 
 ## Functions
-|Function name|Parameters|Return type|
-|-------------|----------|-----------|
-|CQ_text|(CQ_Context *ctx, const char *prompt, size_t max_len)|char*|
-|CQ_password|(CQ_Context *ctx, const char *prompt, size_t max_len)|char*|
-|CQ_select|(CQ_Context *ctx, const char *prompt, const char **options, size_t num_options)|char*|
-|CQ_checkbox|(CQ_Context *ctx, const char *prompt, const char **options, size_t num_options)|uint64_t|
-|CQ_confirm|(CQ_Context *ctx, const char *prompt)|bool|
+|Function name|Parameters|Return type|Description|
+|-------------|----------|-----------|-----------|
+|CQ_text|(CQ_Context* ctx, const char* prompt, size_t max_len)|char*|A text prompt|
+|CQ_password|(CQ_Context* ctx, const char* prompt, size_t max_len)|char*|A hidden password prompt|
+|CQ_select|(CQ_Context* ctx, const char* prompt, const char** options, size_t num_options)|char*|A prompt with multiple options|
+|CQ_checkbox|(CQ_Context* ctx, const char* prompt, const char** options, size_t num_options)|uint64_t|A prompt with multiple checkboxes|
+|CQ_confirm|(CQ_Context* ctx, const char* prompt)|bool|A simple confirmation prompt|
+|CQ_alloc|(CQ_Context* ctx, size_t size)|char*|Allocate on the arena|
+|CQ_free_last|(CQ_Context* ctx)|void|Free the last arena allocation|
+|CQ_free_secure|(CQ_Context* ctx, char* buf)|void|Free specific allocation + secure zero|
+|CQ_cleanup|(CQ_Context* ctx)|void|Free and clean up the entire arena|
 
 ## License
 This project uses the [MIT License](https://github.com/NotStrahinja/cquiry/blob/main/LICENSE).
