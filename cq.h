@@ -165,16 +165,10 @@ char* CQ_text(CQ_Context* ctx, const char* prompt, size_t max_len)
         return NULL;
     char* buf = CQ_alloc(ctx, max_len);
     if (!buf)
-    {
-        CQ_free_last(ctx);
         return NULL;
-    }
     printf("%s?\x1b[0m %s \x1b[1m%s", ctx->q_color, prompt, ctx->theme_color);
     if (!fgets(buf, max_len, stdin))
-    {
-        CQ_free_last(ctx);
         return NULL;
-    }
     buf[strcspn(buf, "\n")] = '\0';
     printf("\x1b[0m");
     return buf;
@@ -189,39 +183,21 @@ char* CQ_password(CQ_Context* ctx, const char* prompt, size_t max_len)
 
     char* buf = CQ_alloc(ctx, max_len);
     if (!buf)
-    {
-        CQ_free_last(ctx);
         return NULL;
-    }
     printf("%s?\x1b[0m %s \x1b[1m%s", ctx->q_color, prompt, ctx->theme_color);
-    if (max_len == 0)
-    {
-        CQ_free_last(ctx);
-        return NULL;
-    }
 
 #ifdef _WIN32
     HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
     if (hStdin == INVALID_HANDLE_VALUE)
-    {
-        CQ_free_last(ctx);
         return NULL;
-    }
     DWORD original;
     if (!GetConsoleMode(hStdin, &original))
-    {
-        CQ_free_last(ctx);
         return NULL;
-    }
     DWORD hidden = original & ~ENABLE_ECHO_INPUT;
     if (!SetConsoleMode(hStdin, hidden))
-    {
-        CQ_free_last(ctx);
         return NULL;
-    }
     if (!fgets(buf, (int)max_len, stdin))
     {
-        CQ_free_last(ctx);
         SetConsoleMode(hStdin, original);
         return NULL;
     }
@@ -229,20 +205,13 @@ char* CQ_password(CQ_Context* ctx, const char* prompt, size_t max_len)
 #else
     struct termios oldt, newt;
     if (tcgetattr(STDIN_FILENO, &oldt) != 0)
-    {
-        CQ_free_last(ctx);
         return NULL;
-    }
     newt = oldt;
     newt.c_lflag &= ~ECHO;
     if (tcsetattr(STDIN_FILENO, TCSANOW, &newt) != 0)
-    {
-        CQ_free_last(ctx);
         return NULL;
-    }
     if (!fgets(buf, max_len, stdin))
     {
-        CQ_free_last(ctx);
         tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
         return NULL;
     }
@@ -254,46 +223,29 @@ char* CQ_password(CQ_Context* ctx, const char* prompt, size_t max_len)
     printf("\x1b[0m%s?\x1b[0m Confirm: \x1b[1m%s", ctx->q_color, ctx->theme_color);
     char* confirm = CQ_alloc(ctx, sizeof(char) * max_len);
     if (!confirm)
-    {
-        CQ_free_last(ctx);
         return NULL;
-    }
 
 #ifdef _WIN32
     if (!GetConsoleMode(hStdin, &original))
-    {
-        CQ_free_last(ctx);
         return NULL;
-    }
     if (!SetConsoleMode(hStdin, hidden))
-    {
-        CQ_free_last(ctx);
         return NULL;
-    }
     if (!fgets(confirm, (int)max_len, stdin))
     {
         SetConsoleMode(hStdin, original);
-        CQ_free_last(ctx);
         return NULL;
     }
     SetConsoleMode(hStdin, original);
 #else
     if (tcgetattr(STDIN_FILENO, &oldt) != 0)
-    {
-        CQ_free_last(ctx);
         return NULL;
-    }
     newt = oldt;
     newt.c_lflag &= ~ECHO;
     if (tcsetattr(STDIN_FILENO, TCSANOW, &newt) != 0)
-    {
-        CQ_free_last(ctx);
         return NULL;
-    }
     if (!fgets(confirm, max_len, stdin))
     {
         tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-        CQ_free_last(ctx);
         return NULL;
     }
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
@@ -304,7 +256,6 @@ char* CQ_password(CQ_Context* ctx, const char* prompt, size_t max_len)
     if (strcmp(buf, confirm) != 0)
     {
         printf("\x1b[0m%sX\x1b[0m Passwords do not match.\n", ctx->err_color);
-        CQ_free_last(ctx);
         return NULL;
     }
 
@@ -326,14 +277,14 @@ char* CQ_select(CQ_Context* ctx, const char* prompt, const char** options, size_
 
     printf("\x1b[?25l");
 
-    int selected_i = 0;
+    size_t selected_i = 0;
     int key;
     char frame[4096];
-    for (int i = 0; i < num_options; ++i)
+    for (size_t i = 0; i < num_options; ++i)
         printf(" %s %s\n", (i == selected_i ? ctx->arrow : " "), options[i]);
     do
     {
-        int n = 0;
+        size_t n = 0;
         key = CQ_getch();
 #ifdef _WIN32
         if (key == 0 || key == 224)
@@ -342,10 +293,10 @@ char* CQ_select(CQ_Context* ctx, const char* prompt, const char** options, size_
             switch (key2)
             {
             case 72:
-                selected_i--;
+                selected_i = (selected_i + num_options - 1) % num_options;
                 break;
             case 80:
-                selected_i++;
+                selected_i = (selected_i + 1) % num_options;
                 break;
             }
         }
@@ -360,26 +311,21 @@ char* CQ_select(CQ_Context* ctx, const char* prompt, const char** options, size_
                 switch (key2)
                 {
                 case 'A':
-                    selected_i--;
+                    selected_i = (selected_i + num_options - 1) % num_options;
                     break;
                 case 'B':
-                    selected_i++;
+                    selected_i = (selected_i + 1) % num_options;
                     break;
                 }
             }
         }
 #endif
-        if (selected_i < 0)
-            selected_i = num_options - 1;
-        if (selected_i >= num_options)
-            selected_i = 0;
-
-        for (int i = 0; i < num_options; ++i)
+        for (size_t i = 0; i < num_options; ++i)
         {
             if (n < sizeof(frame))
                 n += snprintf(frame + n, sizeof(frame) - n, "\x1b[1A\x1b[2K");
         }
-        for (int i = 0; i < num_options; ++i)
+        for (size_t i = 0; i < num_options; ++i)
         {
             if (n < sizeof(frame))
                 n += snprintf(frame + n, sizeof(frame) - n, " %s %s\n", (i == selected_i ? ctx->arrow : " "), options[i]);
@@ -390,11 +336,8 @@ char* CQ_select(CQ_Context* ctx, const char* prompt, const char** options, size_
 
     char* selected = CQ_alloc(ctx, strlen(options[selected_i]) + 1);
     if (!selected)
-    {
-        CQ_free_last(ctx);
         return NULL;
-    }
-    snprintf(selected, sizeof(selected), "%s", options[selected_i]);
+    memcpy(selected, options[selected_i], strlen(options[selected_i]) + 1);
 
     printf("\x1b[0m");
 
@@ -445,10 +388,7 @@ uint64_t CQ_checkbox(CQ_Context* ctx, const char* prompt, const char** options, 
     int selected_i = 0;
     bool* all_selected = (bool*)CQ_alloc(ctx, num_options * sizeof(bool));
     if (!all_selected)
-    {
-        CQ_free_last(ctx);
         return UINT64_MAX;
-    }
     for (int i = 0; i < num_options; ++i)
         all_selected[i] = false;
 
@@ -471,10 +411,10 @@ uint64_t CQ_checkbox(CQ_Context* ctx, const char* prompt, const char** options, 
             switch (key2)
             {
             case 72:
-                selected_i--;
+                selected_i = (selected_i + num_options - 1) % num_options;
                 break;
             case 80:
-                selected_i++;
+                selected_i = (selected_i + 1) % num_options;
                 break;
             }
         }
@@ -488,10 +428,10 @@ uint64_t CQ_checkbox(CQ_Context* ctx, const char* prompt, const char** options, 
                 switch (key2)
                 {
                 case 'A':
-                    selected_i--;
+                    selected_i = (selected_i + num_options - 1) % num_options;
                     break;
                 case 'B':
-                    selected_i++;
+                    selected_i = (selected_i + 1) % num_options;
                     break;
                 }
             }
@@ -499,11 +439,6 @@ uint64_t CQ_checkbox(CQ_Context* ctx, const char* prompt, const char** options, 
 #endif
         if (key == ' ')
             all_selected[selected_i] = !all_selected[selected_i];
-
-        if (selected_i < 0)
-            selected_i = num_options - 1;
-        if (selected_i >= num_options)
-            selected_i = 0;
 
         for (int i = 0; i < num_options; ++i)
         {
