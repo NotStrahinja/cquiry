@@ -17,7 +17,13 @@
 
 typedef struct
 {
-    char** ptrs;
+    void* ptr;
+    size_t size;
+} CQ_Alloc;
+
+typedef struct
+{
+    CQ_Alloc* allocs;
     size_t count;
     size_t capacity;
     const char* theme_color;
@@ -26,7 +32,9 @@ typedef struct
     const char* arrow;
 } CQ_Context;
 
-char* CQ_alloc(CQ_Context* ctx, size_t size);
+void* CQ_alloc(CQ_Context* ctx, size_t size);
+void CQ_free_last(CQ_Context* ctx);
+bool CQ_free_secure(CQ_Context* ctx, void* buf);
 void CQ_cleanup(CQ_Context* ctx);
 char* CQ_text(CQ_Context* ctx, const char* prompt, size_t max_len);
 char* CQ_password(CQ_Context* ctx, const char* prompt, size_t max_len);
@@ -52,6 +60,7 @@ int CQ_getch();
 #else
 #include <unistd.h>
 #include <termios.h>
+#include <sys/mman.h>
 #define CONFIRM '\n'
 #endif
 
@@ -77,26 +86,31 @@ int CQ_getch()
 }
 #endif
 
-char* CQ_alloc(CQ_Context* ctx, size_t size)
+/* Allocates `size` bytes and tracks {ptr, size} in ctx so later calls
+   (CQ_free_last, CQ_free_secure, CQ_cleanup) know the true buffer size
+   instead of guessing from string content. */
+void* CQ_alloc(CQ_Context* ctx, size_t size)
 {
-    char* ptr = (char*)malloc(size);
+    void* ptr = malloc(size);
     if (!ptr)
         return NULL;
 
     if (ctx->count == ctx->capacity)
     {
         size_t new_cap = ctx->capacity ? ctx->capacity * 2 : 8;
-        char** new_ptrs = (char**)realloc(ctx->ptrs, new_cap * sizeof(char*));
-        if (!new_ptrs)
+        CQ_Alloc* new_allocs = (CQ_Alloc*)realloc(ctx->allocs, new_cap * sizeof(CQ_Alloc));
+        if (!new_allocs)
         {
             free(ptr);
             return NULL;
         }
-        ctx->ptrs = new_ptrs;
+        ctx->allocs = new_allocs;
         ctx->capacity = new_cap;
     }
 
-    ctx->ptrs[ctx->count++] = ptr;
+    ctx->allocs[ctx->count].ptr = ptr;
+    ctx->allocs[ctx->count].size = size;
+    ctx->count++;
     return ptr;
 }
 
@@ -105,7 +119,8 @@ void CQ_free_last(CQ_Context* ctx)
     if (ctx->count == 0)
         return;
 
-    free(ctx->ptrs[--ctx->count]);
+    ctx->count--;
+    free(ctx->allocs[ctx->count].ptr);
 }
 
 static void CQ_secure_zero(void* ptr, size_t len)
@@ -123,24 +138,29 @@ static void CQ_secure_zero(void* ptr, size_t len)
 #endif
 }
 
-bool CQ_free_secure(CQ_Context* ctx, char* buf)
+/* Zeroes and unlocks the FULL allocation (not just strlen()+1), since
+   malloc'd memory beyond the terminator can still hold leftover data
+   from a previous heap user. */
+bool CQ_free_secure(CQ_Context* ctx, void* buf)
 {
     if (!buf)
         return false;
 
     for (size_t i = 0; i < ctx->count; ++i)
     {
-        if (ctx->ptrs[i] == buf)
+        if (ctx->allocs[i].ptr == buf)
         {
-            CQ_secure_zero(buf, strlen(buf) + 1);
+            size_t size = ctx->allocs[i].size;
+
+            CQ_secure_zero(buf, size);
 #ifdef _WIN32
-            VirtualUnlock(buf, strlen(buf) + 1);
+            VirtualUnlock(buf, size);
 #else
-            munlock(buf, strlen(buf) + 1);
+            munlock(buf, size);
 #endif
             free(buf);
 
-            ctx->ptrs[i] = ctx->ptrs[ctx->count - 1];
+            ctx->allocs[i] = ctx->allocs[ctx->count - 1];
             ctx->count--;
             return true;
         }
@@ -152,9 +172,12 @@ bool CQ_free_secure(CQ_Context* ctx, char* buf)
 void CQ_cleanup(CQ_Context* ctx)
 {
     for (size_t i = 0; i < ctx->count; ++i)
-        free(ctx->ptrs[i]);
-    free(ctx->ptrs);
-    ctx->ptrs = NULL;
+    {
+        CQ_secure_zero(ctx->allocs[i].ptr, ctx->allocs[i].size);
+        free(ctx->allocs[i].ptr);
+    }
+    free(ctx->allocs);
+    ctx->allocs = NULL;
     ctx->count = 0;
     ctx->capacity = 0;
 }
@@ -163,7 +186,7 @@ char* CQ_text(CQ_Context* ctx, const char* prompt, size_t max_len)
 {
     if (max_len == 0)
         return NULL;
-    char* buf = CQ_alloc(ctx, max_len);
+    char* buf = (char*)CQ_alloc(ctx, max_len);
     if (!buf)
         return NULL;
     printf("%s?\x1b[0m %s \x1b[1m%s", ctx->q_color, prompt, ctx->theme_color);
@@ -181,9 +204,15 @@ char* CQ_password(CQ_Context* ctx, const char* prompt, size_t max_len)
 
     printf("\x1b[0m");
 
-    char* buf = CQ_alloc(ctx, max_len);
+    char* buf = (char*)CQ_alloc(ctx, max_len);
     if (!buf)
         return NULL;
+#ifdef _WIN32
+    VirtualLock(buf, max_len);
+#else
+    mlock(buf, max_len);
+#endif
+
     printf("%s?\x1b[0m %s \x1b[1m%s", ctx->q_color, prompt, ctx->theme_color);
 
 #ifdef _WIN32
@@ -221,9 +250,14 @@ char* CQ_password(CQ_Context* ctx, const char* prompt, size_t max_len)
     buf[strcspn(buf, "\n")] = '\0';
 
     printf("\x1b[0m%s?\x1b[0m Confirm: \x1b[1m%s", ctx->q_color, ctx->theme_color);
-    char* confirm = CQ_alloc(ctx, sizeof(char) * max_len);
+    char* confirm = (char*)CQ_alloc(ctx, sizeof(char) * max_len);
     if (!confirm)
         return NULL;
+#ifdef _WIN32
+    VirtualLock(confirm, max_len);
+#else
+    mlock(confirm, max_len);
+#endif
 
 #ifdef _WIN32
     if (!GetConsoleMode(hStdin, &original))
@@ -256,8 +290,26 @@ char* CQ_password(CQ_Context* ctx, const char* prompt, size_t max_len)
     if (strcmp(buf, confirm) != 0)
     {
         printf("\x1b[0m%sX\x1b[0m Passwords do not match.\n", ctx->err_color);
+        CQ_secure_zero(confirm, max_len);
+        CQ_secure_zero(buf, max_len);
+#ifdef _WIN32
+        VirtualUnlock(confirm, max_len);
+        VirtualUnlock(buf, max_len);
+#else
+        munlock(confirm, max_len);
+        munlock(buf, max_len);
+#endif
+        CQ_free_last(ctx);
+        CQ_free_last(ctx);
         return NULL;
     }
+
+    CQ_secure_zero(confirm, max_len);
+#ifdef _WIN32
+    VirtualUnlock(confirm, max_len);
+#else
+    munlock(confirm, max_len);
+#endif
 
     CQ_free_last(ctx);
 
@@ -334,14 +386,15 @@ char* CQ_select(CQ_Context* ctx, const char* prompt, const char** options, size_
         fflush(stdout);
     } while (key != CONFIRM);
 
-    char* selected = CQ_alloc(ctx, strlen(options[selected_i]) + 1);
+    size_t sel_len = strlen(options[selected_i]) + 1;
+    char* selected = (char*)CQ_alloc(ctx, sel_len);
     if (!selected)
         return NULL;
-    memcpy(selected, options[selected_i], strlen(options[selected_i]) + 1);
+    memcpy(selected, options[selected_i], sel_len);
 
     printf("\x1b[0m");
 
-    for (int i = 0; i < num_options + 1; ++i)
+    for (size_t i = 0; i < num_options + 1; ++i)
         printf("\x1b[1A\x1b[2K");
     printf("%s?\x1b[0m %s \x1b[1m%s%s\n", ctx->q_color, prompt, ctx->theme_color, selected);
 
@@ -385,14 +438,14 @@ uint64_t CQ_checkbox(CQ_Context* ctx, const char* prompt, const char** options, 
     printf("%s?\x1b[0m %s\n", ctx->q_color, prompt);
     printf("\x1b[?25l");
 
-    int selected_i = 0;
+    size_t selected_i = 0;
     bool* all_selected = (bool*)CQ_alloc(ctx, num_options * sizeof(bool));
     if (!all_selected)
         return UINT64_MAX;
-    for (int i = 0; i < num_options; ++i)
+    for (size_t i = 0; i < num_options; ++i)
         all_selected[i] = false;
 
-    for (int i = 0; i < num_options; ++i)
+    for (size_t i = 0; i < num_options; ++i)
         printf(" %s %s %s\n",
                (i == selected_i ? ctx->arrow : " "),
                (all_selected[i] ? "\x1b[32m[X]\x1b[0m" : "[ ]"),
@@ -402,7 +455,7 @@ uint64_t CQ_checkbox(CQ_Context* ctx, const char* prompt, const char** options, 
     char frame[4096];
     do
     {
-        int n = 0;
+        size_t n = 0;
         key = CQ_getch();
 #ifdef _WIN32
         if (key == 0 || key == 224)
@@ -440,12 +493,12 @@ uint64_t CQ_checkbox(CQ_Context* ctx, const char* prompt, const char** options, 
         if (key == ' ')
             all_selected[selected_i] = !all_selected[selected_i];
 
-        for (int i = 0; i < num_options; ++i)
+        for (size_t i = 0; i < num_options; ++i)
         {
             if (n < sizeof(frame))
                 n += snprintf(frame + n, sizeof(frame) - n, "\x1b[1A\x1b[2K");
         }
-        for (int i = 0; i < num_options; ++i)
+        for (size_t i = 0; i < num_options; ++i)
         {
             if (n < sizeof(frame))
                 n += snprintf(frame + n, sizeof(frame) - n, " %s %s %s\n", (i == selected_i ? ctx->arrow : " "), (all_selected[i] ? "\x1b[32m[X]\x1b[0m" : "[ ]"), options[i]);
@@ -457,16 +510,16 @@ uint64_t CQ_checkbox(CQ_Context* ctx, const char* prompt, const char** options, 
 
     int feature_count = 0;
 
-    for (int i = 0; i < num_options; ++i)
+    for (size_t i = 0; i < num_options; ++i)
         if (all_selected[i])
             selected |= (1ULL << i), feature_count++;
 
     printf("\x1b[0m");
 
-    for (int i = 0; i < num_options + 1; ++i)
+    for (size_t i = 0; i < num_options + 1; ++i)
         printf("\x1b[1A\x1b[2K");
     printf("%s?\x1b[0m %s \x1b[1m%s", ctx->q_color, prompt, ctx->theme_color);
-    for (int i = 0; i < num_options; ++i)
+    for (size_t i = 0; i < num_options; ++i)
         if (selected & (1ULL << i))
             printf("%s ", options[i]);
     if (feature_count == 0)
