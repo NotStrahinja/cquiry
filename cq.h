@@ -86,9 +86,6 @@ int CQ_getch()
 }
 #endif
 
-/* Allocates `size` bytes and tracks {ptr, size} in ctx so later calls
-   (CQ_free_last, CQ_free_secure, CQ_cleanup) know the true buffer size
-   instead of guessing from string content. */
 void* CQ_alloc(CQ_Context* ctx, size_t size)
 {
     void* ptr = malloc(size);
@@ -138,9 +135,6 @@ static void CQ_secure_zero(void* ptr, size_t len)
 #endif
 }
 
-/* Zeroes and unlocks the FULL allocation (not just strlen()+1), since
-   malloc'd memory beyond the terminator can still hold leftover data
-   from a previous heap user. */
 bool CQ_free_secure(CQ_Context* ctx, void* buf)
 {
     if (!buf)
